@@ -1,5 +1,6 @@
 
 import os
+import sys
 import time
 import hmac
 import hashlib
@@ -7,6 +8,10 @@ import math
 import requests
 import uuid
 from datetime import datetime
+
+# Force unbuffered output for cloud logging
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
 
 # === 🔑 BYBIT API KEYS (from environment) ===
 API_KEY = os.getenv("BYBIT_API_KEY")
@@ -37,14 +42,22 @@ instrument_cache = {}
 def get_timestamp():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+# Startup message before checking API keys
+print(f"[{get_timestamp()}] 🚀 Starting hedge bot...", flush=True)
+print(f"[{get_timestamp()}] 📦 Python version: {sys.version}", flush=True)
+print(f"[{get_timestamp()}] 📁 Working directory: {os.getcwd()}", flush=True)
+
 # Check API keys after get_timestamp is defined
 if not API_KEY or not API_SECRET:
-    print(f"[{get_timestamp()}] ❌ ERROR: BYBIT_API_KEY and BYBIT_API_SECRET must be set as environment variables!")
-    exit(1)
+    print(f"[{get_timestamp()}] ❌ ERROR: BYBIT_API_KEY and BYBIT_API_SECRET must be set as environment variables!", flush=True)
+    print(f"[{get_timestamp()}] API_KEY is set: {API_KEY is not None}", flush=True)
+    print(f"[{get_timestamp()}] API_SECRET is set: {API_SECRET is not None}", flush=True)
+    sys.exit(1)
 
-print("KEY TEST:", API_KEY[:6] if API_KEY else "KEY IS EMPTY/NONE")
-print("KEY LENGTH:", len(API_KEY) if API_KEY else 0)
-print("SECRET LENGTH:", len(API_SECRET) if API_SECRET else 0)
+print(f"[{get_timestamp()}] ✅ API keys loaded", flush=True)
+print("KEY TEST:", API_KEY[:6] if API_KEY else "KEY IS EMPTY/NONE", flush=True)
+print("KEY LENGTH:", len(API_KEY) if API_KEY else 0, flush=True)
+print("SECRET LENGTH:", len(API_SECRET) if API_SECRET else 0, flush=True)
 
 
 # Removed adjust_qty - using simple rounding like old working bot
@@ -105,7 +118,7 @@ def place_market_order(symbol, side, qty):
     return r.json()
 
 # === 🚀 MAIN BOT LOOP ===
-print(f"[{get_timestamp()}] 🔧 Bybit hedge bot started (USDT-perp)...")
+print(f"[{get_timestamp()}] 🔧 Bybit hedge bot started (USDT-perp)...", flush=True)
 
 price_long = get_price(symbol_long)
 price_short = get_price(symbol_short)
