@@ -13,9 +13,26 @@ from datetime import datetime
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
-# === 🔑 BYBIT API KEYS (from environment) ===
+# === 🔑 BYBIT API KEYS (from environment, with local fallback) ===
+# For cloud deployment: Use environment variables (more secure)
+# For local testing: Fall back to hardcoded keys if env vars not set
 API_KEY = os.getenv("BYBIT_API_KEY")
 API_SECRET = os.getenv("BYBIT_API_SECRET")
+
+# Fallback for local testing (only used if env vars not set)
+if not API_KEY or not API_SECRET:
+    # Check if we're running in a cloud environment (Railway, Render, etc.)
+    is_cloud = os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RENDER") or os.getenv("DYNO") or os.getenv("FLY_APP_NAME")
+    
+    if not is_cloud:
+        # Local development - use hardcoded keys for convenience
+        print(f"[{get_timestamp()}] ⚠️ Environment variables not set. Using hardcoded keys for local testing.", flush=True)
+        API_KEY = "IQLf80eQtGNRghf7ux"
+        API_SECRET = "6qcz3FE9j2cXr8afh2JLSAwA4AD5qHSXi7VC"
+    else:
+        # Cloud environment requires env vars (more secure)
+        API_KEY = None
+        API_SECRET = None
 
 # Debug: Print all environment variables that start with BYBIT
 print("=== ENVIRONMENT VARIABLES DEBUG ===")
