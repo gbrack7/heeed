@@ -123,8 +123,8 @@ print(f"[{get_timestamp()}] 🔧 Bybit hedge bot started (USDT-perp)...", flush=
 price_long = get_price(symbol_long)
 price_short = get_price(symbol_short)
 if not price_long or not price_short:
-    print(f"[{get_timestamp()}] ❌ Failed to fetch initial prices.")
-    exit()
+    print(f"[{get_timestamp()}] ❌ Failed to fetch initial prices.", flush=True)
+    sys.exit(1)
 
 initial_ratio = price_long / price_short
 trigger_ratio = initial_ratio * (1 - trigger_drop_pct / 100)
@@ -137,11 +137,11 @@ if ENABLE_SCALE_IN:
     for i in range(SCALE_IN_LEGS):
         drop_pct = trigger_drop_pct + (i * SCALE_IN_DROP_STEP)
         scale_in_trigger_ratios.append(initial_ratio * (1 - drop_pct / 100))
-    print(f"[{get_timestamp()}] 📉 Scale-in enabled: {SCALE_IN_LEGS} legs of ${scale_in_leg_size:.0f} each")
-    print(f"[{get_timestamp()}] 📉 Leg 1 trigger: {scale_in_trigger_ratios[0]:.4f} ({trigger_drop_pct}% drop)")
-    print(f"[{get_timestamp()}] 📉 Leg {SCALE_IN_LEGS} trigger: {scale_in_trigger_ratios[-1]:.4f} ({trigger_drop_pct + (SCALE_IN_LEGS-1)*SCALE_IN_DROP_STEP}% drop)")
-else:
-    print(f"[{get_timestamp()}] 📉 Waiting for {symbol_long}/{symbol_short} to drop to {trigger_ratio:.4f} ({trigger_drop_pct}% below {initial_ratio:.4f})")
+            print(f"[{get_timestamp()}] 📉 Scale-in enabled: {SCALE_IN_LEGS} legs of ${scale_in_leg_size:.0f} each", flush=True)
+            print(f"[{get_timestamp()}] 📉 Leg 1 trigger: {scale_in_trigger_ratios[0]:.4f} ({trigger_drop_pct}% drop)", flush=True)
+            print(f"[{get_timestamp()}] 📉 Leg {SCALE_IN_LEGS} trigger: {scale_in_trigger_ratios[-1]:.4f} ({trigger_drop_pct + (SCALE_IN_LEGS-1)*SCALE_IN_DROP_STEP}% drop)", flush=True)
+        else:
+            print(f"[{get_timestamp()}] 📉 Waiting for {symbol_long}/{symbol_short} to drop to {trigger_ratio:.4f} ({trigger_drop_pct}% below {initial_ratio:.4f})", flush=True)
 
 while True:
     try:
@@ -162,7 +162,8 @@ while True:
         
         print(
             f"[{get_timestamp()}] 📊 LONG = ${long_price} | SHORT = ${short_price} | "
-            f"Ratio = {ratio:.4f} | Target ≤ {current_target:.4f} ({progress})"
+            f"Ratio = {ratio:.4f} | Target ≤ {current_target:.4f} ({progress})",
+            flush=True
         )
 
         # Scale-in logic
@@ -274,5 +275,7 @@ while True:
         print(f"[{get_timestamp()}] ⏹️ Bot stopped by user.")
         break
     except Exception as e:
-        print(f"[{get_timestamp()}] ❌ Error: {e}")
+        import traceback
+        print(f"[{get_timestamp()}] ❌ Error: {e}", flush=True)
+        print(f"[{get_timestamp()}] Traceback: {traceback.format_exc()}", flush=True)
         time.sleep(30)
