@@ -186,11 +186,30 @@ while True:
         
         # Set initial ratio on first successful price fetch if not set
         if initial_ratio is None:
-            initial_ratio = long_price / short_price
-            trigger_ratio = initial_ratio * (1 - trigger_drop_pct / 100)
-            print(f"[{get_timestamp()}] ✅ Initial ratio set: {initial_ratio:.4f}, Trigger: {trigger_ratio:.4f}", flush=True)
+            try:
+                if short_price == 0:
+                    print(f"[{get_timestamp()}] ⚠️ Invalid short price (0), skipping...", flush=True)
+                    time.sleep(30)
+                    continue
+                initial_ratio = long_price / short_price
+                trigger_ratio = initial_ratio * (1 - trigger_drop_pct / 100)
+                print(f"[{get_timestamp()}] ✅ Initial ratio set: {initial_ratio:.4f}, Trigger: {trigger_ratio:.4f}", flush=True)
+            except Exception as e:
+                print(f"[{get_timestamp()}] ❌ Error calculating initial ratio: {e}", flush=True)
+                time.sleep(30)
+                continue
 
-        ratio = long_price / short_price
+        # Calculate current ratio safely
+        try:
+            if short_price == 0:
+                print(f"[{get_timestamp()}] ⚠️ Invalid short price (0), skipping...", flush=True)
+                time.sleep(30)
+                continue
+            ratio = long_price / short_price
+        except Exception as e:
+            print(f"[{get_timestamp()}] ❌ Error calculating ratio: {e}", flush=True)
+            time.sleep(30)
+            continue
         
         # Show current target based on scale-in progress
         if ENABLE_SCALE_IN and scale_in_executed < SCALE_IN_LEGS and len(scale_in_trigger_ratios) > scale_in_executed:
