@@ -1,0 +1,241 @@
+
+import os
+import time
+import hmac
+import hashlib
+import math
+import requests
+import uuid
+from datetime import datetime
+
+# === 🔑 BYBIT API KEYS (from environment) ===
+API_KEY = os.getenv("BYBIT_API_KEY")
+API_SECRET = os.getenv("BYBIT_API_SECRET")
+
+# === ⚙️ SETTINGS ===
+symbol_long = os.getenv("SYMBOL_LONG", "HYPEUSDT")
+symbol_short = os.getenv("SYMBOL_SHORT", "JASMYUSDT")
+usd_position_size = float(os.getenv("USD_POSITION_SIZE", "1500"))
+MAX_USD_POSITION = float(os.getenv("MAX_USD_POSITION", "1500"))
+trigger_drop_pct = float(os.getenv("TRIGGER_DROP_PCT", "12"))
+
+# === SCALE-IN SETTINGS ===
+ENABLE_SCALE_IN = os.getenv("ENABLE_SCALE_IN", "False").lower() == "true"
+SCALE_IN_LEGS = int(os.getenv("SCALE_IN_LEGS", "3"))
+SCALE_IN_DROP_STEP = float(os.getenv("SCALE_IN_DROP_STEP", "2"))
+
+endpoint = "https://api.bybit.com"
+instrument_cache = {}
+
+def get_timestamp():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+# Check API keys after get_timestamp is defined
+if not API_KEY or not API_SECRET:
+    print(f"[{get_timestamp()}] ❌ ERROR: BYBIT_API_KEY and BYBIT_API_SECRET must be set as environment variables!")
+    exit(1)
+
+print("KEY TEST:", API_KEY[:6])
+
+
+# Removed adjust_qty - using simple rounding like old working bot
+# This prevents API call hangs that were causing bot failures
+
+def get_price(symbol):
+    try:
+        res = requests.get(f"{endpoint}/v5/market/tickers?category=linear&symbol={symbol}")
+        data = res.json()
+        price_str = data["result"]["list"][0].get("lastPrice")
+        return float(price_str) if price_str else None
+    except Exception as e:
+        print(f"[{get_timestamp()}] ❌ Error fetching price for {symbol}: {e}")
+        return None
+
+def place_market_order(symbol, side, qty):
+    timestamp = str(int(time.time() * 1000))
+    recv_window = "5000"
+
+    params = {
+        "category": "linear",
+        "symbol": symbol,
+        "side": side,
+        "orderType": "Market",
+        "qty": str(qty),
+        "timeInForce": "GoodTillCancel",
+        "orderLinkId": str(uuid.uuid4()),
+    }
+
+    query_string = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
+    sign_payload = f"{timestamp}{API_KEY}{recv_window}{query_string}"
+    signature = hmac.new(API_SECRET.encode(), sign_payload.encode(), hashlib.sha256).hexdigest()
+
+    headers = {
+        "X-BAPI-API-KEY": API_KEY,
+        "X-BAPI-SIGN": signature,
+        "X-BAPI-TIMESTAMP": timestamp,
+        "X-BAPI-RECV-WINDOW": recv_window,
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    r = requests.post(f"{endpoint}/v5/order/create", data=query_string, headers=headers)
+    return r.json()
+
+# === 🚀 MAIN BOT LOOP ===
+print(f"[{get_timestamp()}] 🔧 Bybit hedge bot started (USDT-perp)...")
+
+price_long = get_price(symbol_long)
+price_short = get_price(symbol_short)
+if not price_long or not price_short:
+    print(f"[{get_timestamp()}] ❌ Failed to fetch initial prices.")
+    exit()
+
+initial_ratio = price_long / price_short
+trigger_ratio = initial_ratio * (1 - trigger_drop_pct / 100)
+
+# Scale-in tracking
+scale_in_leg_size = usd_position_size / SCALE_IN_LEGS if ENABLE_SCALE_IN else usd_position_size
+scale_in_executed = 0
+scale_in_trigger_ratios = []
+if ENABLE_SCALE_IN:
+    for i in range(SCALE_IN_LEGS):
+        drop_pct = trigger_drop_pct + (i * SCALE_IN_DROP_STEP)
+        scale_in_trigger_ratios.append(initial_ratio * (1 - drop_pct / 100))
+    print(f"[{get_timestamp()}] 📉 Scale-in enabled: {SCALE_IN_LEGS} legs of ${scale_in_leg_size:.0f} each")
+    print(f"[{get_timestamp()}] 📉 Leg 1 trigger: {scale_in_trigger_ratios[0]:.4f} ({trigger_drop_pct}% drop)")
+    print(f"[{get_timestamp()}] 📉 Leg {SCALE_IN_LEGS} trigger: {scale_in_trigger_ratios[-1]:.4f} ({trigger_drop_pct + (SCALE_IN_LEGS-1)*SCALE_IN_DROP_STEP}% drop)")
+else:
+    print(f"[{get_timestamp()}] 📉 Waiting for {symbol_long}/{symbol_short} to drop to {trigger_ratio:.4f} ({trigger_drop_pct}% below {initial_ratio:.4f})")
+
+while True:
+    try:
+        long_price = get_price(symbol_long)
+        short_price = get_price(symbol_short)
+        if not long_price or not short_price:
+            continue
+
+        ratio = long_price / short_price
+        
+        # Show current target based on scale-in progress
+        if ENABLE_SCALE_IN and scale_in_executed < SCALE_IN_LEGS:
+            current_target = scale_in_trigger_ratios[scale_in_executed]
+            progress = f"Leg {scale_in_executed + 1}/{SCALE_IN_LEGS}"
+        else:
+            current_target = trigger_ratio
+            progress = "Full"
+        
+        print(
+            f"[{get_timestamp()}] 📊 LONG = ${long_price} | SHORT = ${short_price} | "
+            f"Ratio = {ratio:.4f} | Target ≤ {current_target:.4f} ({progress})"
+        )
+
+        # Scale-in logic
+        if ENABLE_SCALE_IN:
+            # Check if we should execute next scale-in leg
+            if scale_in_executed < SCALE_IN_LEGS and ratio <= scale_in_trigger_ratios[scale_in_executed]:
+                leg_num = scale_in_executed + 1
+                print(f"[{get_timestamp()}] 🚀 Scale-in Leg {leg_num}/{SCALE_IN_LEGS} triggered! Ratio: {ratio:.4f}")
+
+                trade_size = min(scale_in_leg_size, MAX_USD_POSITION - (scale_in_executed * scale_in_leg_size))
+                if trade_size <= 0:
+                    print(f"[{get_timestamp()}] ⚠️ Max position reached. Skipping leg {leg_num}.")
+                    scale_in_executed = SCALE_IN_LEGS
+                    continue
+
+                long_qty = round(trade_size / long_price, 2)
+                short_qty = round(trade_size / short_price, 0)
+
+                print(f"[{get_timestamp()}] 📐 Leg {leg_num} - Long qty: {long_qty} {symbol_long} | Short qty: {short_qty} {symbol_short}")
+
+                r1 = place_market_order(symbol_long, "Buy", long_qty)
+                r2 = place_market_order(symbol_short, "Sell", short_qty)
+
+                print(f"[{get_timestamp()}] Leg {leg_num} orders sent:")
+                print(f"[{get_timestamp()}] ➡️ Long:", r1)
+                print(f"[{get_timestamp()}] ⬅️ Short:", r2)
+                
+                # CRITICAL: Check if both orders succeeded
+                long_success = r1.get("retCode") == 0
+                short_success = r2.get("retCode") == 0
+                
+                if not (long_success and short_success):
+                    print(f"[{get_timestamp()}] ⚠️⚠️⚠️ CRITICAL: Leg {leg_num} partial execution!")
+                    if long_success and not short_success:
+                        print(f"[{get_timestamp()}] ⚠️⚠️⚠️ Long succeeded, Short failed: {r2.get('retMsg', 'Unknown')}")
+                    elif not long_success and short_success:
+                        print(f"[{get_timestamp()}] ⚠️⚠️⚠️ Short succeeded, Long failed: {r1.get('retMsg', 'Unknown')}")
+                    else:
+                        print(f"[{get_timestamp()}] ⚠️⚠️⚠️ Both orders failed!")
+                    print(f"[{get_timestamp()}] ⚠️⚠️⚠️ Stopping scale-in to prevent further unhedged positions!")
+                    break
+                
+                print(f"[{get_timestamp()}] ✅ Leg {leg_num} both orders executed successfully!")
+
+                scale_in_executed += 1
+                total_executed = scale_in_executed * scale_in_leg_size
+                print(f"[{get_timestamp()}] 📊 Progress: ${total_executed:.0f}/${usd_position_size:.0f} executed ({scale_in_executed}/{SCALE_IN_LEGS} legs)")
+
+                # If all legs executed, exit
+                if scale_in_executed >= SCALE_IN_LEGS:
+                    print(f"[{get_timestamp()}] ✅ All scale-in legs completed!")
+                    break
+                
+                # Wait a bit before checking for next leg
+                time.sleep(5)
+                continue
+
+        # Original single-execution logic (if scale-in disabled)
+        elif ratio <= trigger_ratio:
+            print(f"[{get_timestamp()}] 🚀 Trigger hit. Executing hedge...")
+
+            trade_size = min(usd_position_size, MAX_USD_POSITION)
+            if trade_size < usd_position_size:
+                print(f"[{get_timestamp()}] ⚠️ Requested size clipped to ${trade_size} max.")
+
+            long_qty = round(trade_size / long_price, 2)
+            short_qty = round(trade_size / short_price, 0)
+
+            print(f"[{get_timestamp()}] 📐 Long qty: {long_qty} {symbol_long} | Short qty: {short_qty} {symbol_short}")
+
+            r1 = place_market_order(symbol_long, "Buy", long_qty)
+            r2 = place_market_order(symbol_short, "Sell", short_qty)
+
+            print(f"[{get_timestamp()}] ⚠️ Orders sent:")
+            print(f"[{get_timestamp()}] ➡️ Long:", r1)
+            print(f"[{get_timestamp()}] ⬅️ Short:", r2)
+            
+            # CRITICAL: Check if both orders succeeded
+            long_success = r1.get("retCode") == 0
+            short_success = r2.get("retCode") == 0
+            
+            if long_success and short_success:
+                print(f"[{get_timestamp()}] ✅ Both orders executed successfully!")
+                break
+            elif long_success and not short_success:
+                print(f"[{get_timestamp()}] ⚠️⚠️⚠️ CRITICAL: Long order succeeded but Short failed!")
+                print(f"[{get_timestamp()}] ⚠️⚠️⚠️ You have an UNHEDGED LONG position! Manual intervention required!")
+                print(f"[{get_timestamp()}] Short error: {r2.get('retMsg', 'Unknown')}")
+                # Don't exit - keep running so user can see the warning
+                break
+            elif not long_success and short_success:
+                print(f"[{get_timestamp()}] ⚠️⚠️⚠️ CRITICAL: Short order succeeded but Long failed!")
+                print(f"[{get_timestamp()}] ⚠️⚠️⚠️ You have an UNHEDGED SHORT position! Manual intervention required!")
+                print(f"[{get_timestamp()}] Long error: {r1.get('retMsg', 'Unknown')}")
+                # Don't exit - keep running so user can see the warning
+                break
+            else:
+                print(f"[{get_timestamp()}] ❌ Both orders failed!")
+                print(f"[{get_timestamp()}] Long error: {r1.get('retMsg', 'Unknown')}")
+                print(f"[{get_timestamp()}] Short error: {r2.get('retMsg', 'Unknown')}")
+                print(f"[{get_timestamp()}] No positions opened. Continuing to monitor...")
+                # Continue monitoring instead of breaking
+                time.sleep(30)
+                continue
+
+        time.sleep(30)
+
+    except KeyboardInterrupt:
+        print(f"[{get_timestamp()}] ⏹️ Bot stopped by user.")
+        break
+    except Exception as e:
+        print(f"[{get_timestamp()}] ❌ Error: {e}")
+        time.sleep(30)
