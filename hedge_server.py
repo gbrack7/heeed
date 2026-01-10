@@ -12,6 +12,13 @@ from datetime import datetime
 API_KEY = os.getenv("BYBIT_API_KEY")
 API_SECRET = os.getenv("BYBIT_API_SECRET")
 
+# Debug: Print all environment variables that start with BYBIT
+print("=== ENVIRONMENT VARIABLES DEBUG ===")
+for key, value in sorted(os.environ.items()):
+    if 'BYBIT' in key.upper():
+        print(f"{key} = {value[:10]}... (length: {len(value)})" if value else f"{key} = None/Empty")
+print("=== END DEBUG ===")
+
 # === ⚙️ SETTINGS ===
 symbol_long = os.getenv("SYMBOL_LONG", "HYPEUSDT")
 symbol_short = os.getenv("SYMBOL_SHORT", "JASMYUSDT")
