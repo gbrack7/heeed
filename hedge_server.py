@@ -13,6 +13,10 @@ from datetime import datetime
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
+# Define get_timestamp first so we can use it in fallback logic
+def get_timestamp():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 # === 🔑 BYBIT API KEYS (from environment, with local fallback) ===
 # For cloud deployment: Use environment variables (more secure)
 # For local testing: Fall back to hardcoded keys if env vars not set
@@ -55,9 +59,6 @@ SCALE_IN_DROP_STEP = float(os.getenv("SCALE_IN_DROP_STEP", "2"))
 
 endpoint = "https://api.bybit.com"
 instrument_cache = {}
-
-def get_timestamp():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 # Startup message before checking API keys
 print(f"[{get_timestamp()}] 🚀 Starting hedge bot...", flush=True)
