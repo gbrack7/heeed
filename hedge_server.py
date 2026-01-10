@@ -193,23 +193,34 @@ while True:
         ratio = long_price / short_price
         
         # Show current target based on scale-in progress
-        if ENABLE_SCALE_IN and scale_in_executed < SCALE_IN_LEGS:
+        if ENABLE_SCALE_IN and scale_in_executed < SCALE_IN_LEGS and len(scale_in_trigger_ratios) > scale_in_executed:
             current_target = scale_in_trigger_ratios[scale_in_executed]
             progress = f"Leg {scale_in_executed + 1}/{SCALE_IN_LEGS}"
-        else:
+        elif trigger_ratio is not None:
             current_target = trigger_ratio
             progress = "Full"
+        else:
+            current_target = "N/A"
+            progress = "Calculating..."
         
         print(
             f"[{get_timestamp()}] 📊 LONG = ${long_price} | SHORT = ${short_price} | "
-            f"Ratio = {ratio:.4f} | Target ≤ {current_target:.4f} ({progress})",
+            f"Ratio = {ratio:.4f} | Target ≤ {current_target} ({progress})",
             flush=True
         )
+
+        # Skip trading logic if ratios aren't set yet
+        if trigger_ratio is None:
+            print(f"[{get_timestamp()}] ⏳ Waiting for trigger ratio to be calculated...", flush=True)
+            time.sleep(30)
+            continue
 
         # Scale-in logic
         if ENABLE_SCALE_IN:
             # Check if we should execute next scale-in leg
-            if scale_in_executed < SCALE_IN_LEGS and ratio <= scale_in_trigger_ratios[scale_in_executed]:
+            if (scale_in_executed < SCALE_IN_LEGS and 
+                len(scale_in_trigger_ratios) > scale_in_executed and 
+                ratio <= scale_in_trigger_ratios[scale_in_executed]):
                 leg_num = scale_in_executed + 1
                 print(f"[{get_timestamp()}] 🚀 Scale-in Leg {leg_num}/{SCALE_IN_LEGS} triggered! Ratio: {ratio:.4f}")
 
@@ -262,7 +273,7 @@ while True:
                 continue
 
         # Original single-execution logic (if scale-in disabled)
-        elif ratio <= trigger_ratio:
+        elif trigger_ratio is not None and ratio <= trigger_ratio:
             print(f"[{get_timestamp()}] 🚀 Trigger hit. Executing hedge...")
 
             trade_size = min(usd_position_size, MAX_USD_POSITION)
