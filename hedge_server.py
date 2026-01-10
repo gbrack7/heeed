@@ -35,7 +35,9 @@ if not API_KEY or not API_SECRET:
     print(f"[{get_timestamp()}] ❌ ERROR: BYBIT_API_KEY and BYBIT_API_SECRET must be set as environment variables!")
     exit(1)
 
-print("KEY TEST:", API_KEY[:6])
+print("KEY TEST:", API_KEY[:6] if API_KEY else "KEY IS EMPTY/NONE")
+print("KEY LENGTH:", len(API_KEY) if API_KEY else 0)
+print("SECRET LENGTH:", len(API_SECRET) if API_SECRET else 0)
 
 
 # Removed adjust_qty - using simple rounding like old working bot
@@ -44,9 +46,19 @@ print("KEY TEST:", API_KEY[:6])
 def get_price(symbol):
     try:
         res = requests.get(f"{endpoint}/v5/market/tickers?category=linear&symbol={symbol}")
+        if res.status_code != 200:
+            print(f"[{get_timestamp()}] ❌ API returned status {res.status_code} for {symbol}: {res.text[:200]}")
+            return None
         data = res.json()
+        if "result" not in data or "list" not in data["result"] or len(data["result"]["list"]) == 0:
+            print(f"[{get_timestamp()}] ❌ Unexpected API response format for {symbol}: {data}")
+            return None
         price_str = data["result"]["list"][0].get("lastPrice")
         return float(price_str) if price_str else None
+    except ValueError as e:
+        print(f"[{get_timestamp()}] ❌ JSON decode error for {symbol}: {e}")
+        print(f"[{get_timestamp()}] Response text: {res.text[:200] if 'res' in locals() else 'No response'}")
+        return None
     except Exception as e:
         print(f"[{get_timestamp()}] ❌ Error fetching price for {symbol}: {e}")
         return None
