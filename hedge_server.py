@@ -120,14 +120,40 @@ def place_market_order(symbol, side, qty):
 # === 🚀 MAIN BOT LOOP ===
 print(f"[{get_timestamp()}] 🔧 Bybit hedge bot started (USDT-perp)...", flush=True)
 
-price_long = get_price(symbol_long)
-price_short = get_price(symbol_short)
-if not price_long or not price_short:
-    print(f"[{get_timestamp()}] ❌ Failed to fetch initial prices.", flush=True)
-    sys.exit(1)
+# Retry initial price fetch with multiple attempts
+max_retries = 5
+retry_count = 0
+price_long = None
+price_short = None
 
-initial_ratio = price_long / price_short
-trigger_ratio = initial_ratio * (1 - trigger_drop_pct / 100)
+while retry_count < max_retries and (not price_long or not price_short):
+    print(f"[{get_timestamp()}] 🔄 Fetching initial prices (attempt {retry_count + 1}/{max_retries})...", flush=True)
+    price_long = get_price(symbol_long)
+    price_short = get_price(symbol_short)
+    
+    if not price_long or not price_short:
+        retry_count += 1
+        if retry_count < max_retries:
+            print(f"[{get_timestamp()}] ⚠️ Failed to fetch initial prices, retrying in 10 seconds...", flush=True)
+            time.sleep(10)
+        else:
+            print(f"[{get_timestamp()}] ❌ Failed to fetch initial prices after {max_retries} attempts.", flush=True)
+            print(f"[{get_timestamp()}] 🔄 Will continue retrying in the main loop...", flush=True)
+            # Don't exit - let the main loop handle retries
+            price_long = 0  # Set dummy values to avoid division error
+            price_short = 1
+
+# Only set initial ratio if we got valid prices
+if price_long and price_short and price_long > 0 and price_short > 0:
+    initial_ratio = price_long / price_short
+    trigger_ratio = initial_ratio * (1 - trigger_drop_pct / 100)
+    print(f"[{get_timestamp()}] ✅ Initial prices loaded: {symbol_long}=${price_long}, {symbol_short}=${price_short}", flush=True)
+    print(f"[{get_timestamp()}] ✅ Initial ratio: {initial_ratio:.4f}, Trigger ratio: {trigger_ratio:.4f}", flush=True)
+else:
+    # Set defaults - will be recalculated when prices are fetched
+    initial_ratio = None
+    trigger_ratio = None
+    print(f"[{get_timestamp()}] ⚠️ Initial prices not available, will set ratio when prices are fetched", flush=True)
 
 # Scale-in tracking
 scale_in_leg_size = usd_position_size / SCALE_IN_LEGS if ENABLE_SCALE_IN else usd_position_size
@@ -141,14 +167,26 @@ if ENABLE_SCALE_IN:
             print(f"[{get_timestamp()}] 📉 Leg 1 trigger: {scale_in_trigger_ratios[0]:.4f} ({trigger_drop_pct}% drop)", flush=True)
             print(f"[{get_timestamp()}] 📉 Leg {SCALE_IN_LEGS} trigger: {scale_in_trigger_ratios[-1]:.4f} ({trigger_drop_pct + (SCALE_IN_LEGS-1)*SCALE_IN_DROP_STEP}% drop)", flush=True)
         else:
-            print(f"[{get_timestamp()}] 📉 Waiting for {symbol_long}/{symbol_short} to drop to {trigger_ratio:.4f} ({trigger_drop_pct}% below {initial_ratio:.4f})", flush=True)
+            if trigger_ratio:
+                print(f"[{get_timestamp()}] 📉 Waiting for {symbol_long}/{symbol_short} to drop to {trigger_ratio:.4f} ({trigger_drop_pct}% below {initial_ratio:.4f})", flush=True)
+            else:
+                print(f"[{get_timestamp()}] 📉 Waiting for trigger ratio to be calculated...", flush=True)
 
 while True:
     try:
         long_price = get_price(symbol_long)
         short_price = get_price(symbol_short)
+        
         if not long_price or not short_price:
+            print(f"[{get_timestamp()}] ⚠️ Failed to fetch prices, retrying in 30 seconds...", flush=True)
+            time.sleep(30)
             continue
+        
+        # Set initial ratio on first successful price fetch if not set
+        if initial_ratio is None:
+            initial_ratio = long_price / short_price
+            trigger_ratio = initial_ratio * (1 - trigger_drop_pct / 100)
+            print(f"[{get_timestamp()}] ✅ Initial ratio set: {initial_ratio:.4f}, Trigger: {trigger_ratio:.4f}", flush=True)
 
         ratio = long_price / short_price
         
