@@ -52,9 +52,14 @@ print("SECRET LENGTH:", len(API_SECRET) if API_SECRET else 0)
 
 def get_price(symbol):
     try:
-        res = requests.get(f"{endpoint}/v5/market/tickers?category=linear&symbol={symbol}")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; HedgeBot/1.0)",
+            "Accept": "application/json"
+        }
+        res = requests.get(f"{endpoint}/v5/market/tickers?category=linear&symbol={symbol}", headers=headers, timeout=10)
         if res.status_code != 200:
-            print(f"[{get_timestamp()}] ❌ API returned status {res.status_code} for {symbol}: {res.text[:200]}")
+            print(f"[{get_timestamp()}] ❌ API returned status {res.status_code} for {symbol}")
+            print(f"[{get_timestamp()}] Response preview: {res.text[:300]}")
             return None
         data = res.json()
         if "result" not in data or "list" not in data["result"] or len(data["result"]["list"]) == 0:
