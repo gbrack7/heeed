@@ -162,15 +162,17 @@ scale_in_trigger_ratios = []
 if ENABLE_SCALE_IN:
     for i in range(SCALE_IN_LEGS):
         drop_pct = trigger_drop_pct + (i * SCALE_IN_DROP_STEP)
-        scale_in_trigger_ratios.append(initial_ratio * (1 - drop_pct / 100))
-            print(f"[{get_timestamp()}] 📉 Scale-in enabled: {SCALE_IN_LEGS} legs of ${scale_in_leg_size:.0f} each", flush=True)
-            print(f"[{get_timestamp()}] 📉 Leg 1 trigger: {scale_in_trigger_ratios[0]:.4f} ({trigger_drop_pct}% drop)", flush=True)
-            print(f"[{get_timestamp()}] 📉 Leg {SCALE_IN_LEGS} trigger: {scale_in_trigger_ratios[-1]:.4f} ({trigger_drop_pct + (SCALE_IN_LEGS-1)*SCALE_IN_DROP_STEP}% drop)", flush=True)
-        else:
-            if trigger_ratio:
-                print(f"[{get_timestamp()}] 📉 Waiting for {symbol_long}/{symbol_short} to drop to {trigger_ratio:.4f} ({trigger_drop_pct}% below {initial_ratio:.4f})", flush=True)
-            else:
-                print(f"[{get_timestamp()}] 📉 Waiting for trigger ratio to be calculated...", flush=True)
+        if initial_ratio:
+            scale_in_trigger_ratios.append(initial_ratio * (1 - drop_pct / 100))
+    if initial_ratio and scale_in_trigger_ratios:
+        print(f"[{get_timestamp()}] 📉 Scale-in enabled: {SCALE_IN_LEGS} legs of ${scale_in_leg_size:.0f} each", flush=True)
+        print(f"[{get_timestamp()}] 📉 Leg 1 trigger: {scale_in_trigger_ratios[0]:.4f} ({trigger_drop_pct}% drop)", flush=True)
+        print(f"[{get_timestamp()}] 📉 Leg {SCALE_IN_LEGS} trigger: {scale_in_trigger_ratios[-1]:.4f} ({trigger_drop_pct + (SCALE_IN_LEGS-1)*SCALE_IN_DROP_STEP}% drop)", flush=True)
+else:
+    if trigger_ratio:
+        print(f"[{get_timestamp()}] 📉 Waiting for {symbol_long}/{symbol_short} to drop to {trigger_ratio:.4f} ({trigger_drop_pct}% below {initial_ratio:.4f})", flush=True)
+    else:
+        print(f"[{get_timestamp()}] 📉 Waiting for trigger ratio to be calculated...", flush=True)
 
 while True:
     try:
