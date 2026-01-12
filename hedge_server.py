@@ -298,19 +298,24 @@ while True:
                 long_qty = round(trade_size / long_price, 3)
                 short_qty = round(trade_size / short_price, 3)
                 
-                # Bybit minimum order size is typically 1 USDT equivalent
-                # Check if quantities are too small
-                min_usd_value = 1.0
-                if (long_qty * long_price) < min_usd_value or (short_qty * short_price) < min_usd_value:
-                    print(f"[{get_timestamp()}] ⚠️ Leg {leg_num} quantities too small (${long_qty * long_price:.2f} and ${short_qty * short_price:.2f}). Minimum is ${min_usd_value}. Skipping leg.", flush=True)
+                # CRITICAL: Bybit minimum order size is typically 5 USDT equivalent for perps
+                # Check if quantities are too small BEFORE sending orders
+                min_usd_value = 5.0  # Increased to 5 USD to be safe
+                long_usd_value = long_qty * long_price
+                short_usd_value = short_qty * short_price
+                
+                if long_usd_value < min_usd_value or short_usd_value < min_usd_value:
+                    print(f"[{get_timestamp()}] ⚠️ Leg {leg_num} quantities too small (${long_usd_value:.2f} and ${short_usd_value:.2f}). Minimum is ${min_usd_value}. Skipping leg.", flush=True)
+                    print(f"[{get_timestamp()}] 💡 Increase position size to at least ${min_usd_value * SCALE_IN_LEGS:.0f} total (currently ${usd_position_size:.0f})", flush=True)
                     scale_in_executed += 1
                     if scale_in_executed >= SCALE_IN_LEGS:
                         print(f"[{get_timestamp()}] ⚠️ All legs skipped due to minimum size requirements.", flush=True)
                         break
                     continue
 
-                print(f"[{get_timestamp()}] 📐 Leg {leg_num} - Long qty: {long_qty} {symbol_long} | Short qty: {short_qty} {symbol_short}", flush=True)
+                print(f"[{get_timestamp()}] 📐 Leg {leg_num} - Long qty: {long_qty} {symbol_long} (${long_usd_value:.2f}) | Short qty: {short_qty} {symbol_short} (${short_usd_value:.2f})", flush=True)
 
+                # CRITICAL: Send orders and check BOTH succeed before proceeding
                 r1 = place_market_order(symbol_long, "Buy", long_qty)
                 r2 = place_market_order(symbol_short, "Sell", short_qty)
 
