@@ -366,10 +366,15 @@ while True:
             long_qty = round(trade_size / long_price, 3)
             short_qty = round(trade_size / short_price, 3)
             
-            # Bybit minimum order size is typically 1 USDT equivalent
-            min_usd_value = 1.0
-            if (long_qty * long_price) < min_usd_value or (short_qty * short_price) < min_usd_value:
-                print(f"[{get_timestamp()}] ⚠️ Quantities too small (${long_qty * long_price:.2f} and ${short_qty * short_price:.2f}). Minimum is ${min_usd_value}. Skipping trade.", flush=True)
+            # CRITICAL: Bybit minimum order size is typically 5 USDT equivalent for perps
+            # Check if quantities are too small BEFORE sending orders
+            min_usd_value = 5.0  # Increased to 5 USD to be safe
+            long_usd_value = long_qty * long_price
+            short_usd_value = short_qty * short_price
+            
+            if long_usd_value < min_usd_value or short_usd_value < min_usd_value:
+                print(f"[{get_timestamp()}] ⚠️ Quantities too small (${long_usd_value:.2f} and ${short_usd_value:.2f}). Minimum is ${min_usd_value}. Skipping trade.", flush=True)
+                print(f"[{get_timestamp()}] 💡 Increase position size to at least ${min_usd_value:.0f} (currently ${trade_size:.0f})", flush=True)
                 time.sleep(30)
                 continue
 
