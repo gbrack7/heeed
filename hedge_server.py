@@ -48,7 +48,7 @@ print("=== END DEBUG ===")
 # === ⚙️ SETTINGS ===
 symbol_long = os.getenv("SYMBOL_LONG", "MNTUSDT")
 symbol_short = os.getenv("SYMBOL_SHORT", "RAYDIUMUSDT")
-usd_position_size = float(os.getenv("USD_POSITION_SIZE", "100"))
+usd_position_size = float(os.getenv("USD_POSITION_SIZE", "1500"))
 MAX_USD_POSITION = float(os.getenv("MAX_USD_POSITION", "1500"))
 trigger_drop_pct = float(os.getenv("TRIGGER_DROP_PCT", "0.01"))
 
@@ -269,8 +269,19 @@ while True:
 
                 long_qty = round(trade_size / long_price, 2)
                 short_qty = round(trade_size / short_price, 0)
+                
+                # Bybit minimum order size is typically 1 USDT equivalent
+                # Check if quantities are too small
+                min_usd_value = 1.0
+                if (long_qty * long_price) < min_usd_value or (short_qty * short_price) < min_usd_value:
+                    print(f"[{get_timestamp()}] ⚠️ Leg {leg_num} quantities too small (${long_qty * long_price:.2f} and ${short_qty * short_price:.2f}). Minimum is ${min_usd_value}. Skipping leg.", flush=True)
+                    scale_in_executed += 1
+                    if scale_in_executed >= SCALE_IN_LEGS:
+                        print(f"[{get_timestamp()}] ⚠️ All legs skipped due to minimum size requirements.", flush=True)
+                        break
+                    continue
 
-                print(f"[{get_timestamp()}] 📐 Leg {leg_num} - Long qty: {long_qty} {symbol_long} | Short qty: {short_qty} {symbol_short}")
+                print(f"[{get_timestamp()}] 📐 Leg {leg_num} - Long qty: {long_qty} {symbol_long} | Short qty: {short_qty} {symbol_short}", flush=True)
 
                 r1 = place_market_order(symbol_long, "Buy", long_qty)
                 r2 = place_market_order(symbol_short, "Sell", short_qty)
@@ -319,8 +330,15 @@ while True:
 
             long_qty = round(trade_size / long_price, 2)
             short_qty = round(trade_size / short_price, 0)
+            
+            # Bybit minimum order size is typically 1 USDT equivalent
+            min_usd_value = 1.0
+            if (long_qty * long_price) < min_usd_value or (short_qty * short_price) < min_usd_value:
+                print(f"[{get_timestamp()}] ⚠️ Quantities too small (${long_qty * long_price:.2f} and ${short_qty * short_price:.2f}). Minimum is ${min_usd_value}. Skipping trade.", flush=True)
+                time.sleep(30)
+                continue
 
-            print(f"[{get_timestamp()}] 📐 Long qty: {long_qty} {symbol_long} | Short qty: {short_qty} {symbol_short}")
+            print(f"[{get_timestamp()}] 📐 Long qty: {long_qty} {symbol_long} | Short qty: {short_qty} {symbol_short}", flush=True)
 
             r1 = place_market_order(symbol_long, "Buy", long_qty)
             r2 = place_market_order(symbol_short, "Sell", short_qty)
