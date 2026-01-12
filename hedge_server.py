@@ -48,9 +48,9 @@ print("=== END DEBUG ===")
 # === ⚙️ SETTINGS ===
 symbol_long = os.getenv("SYMBOL_LONG", "MNTUSDT")
 symbol_short = os.getenv("SYMBOL_SHORT", "RAYDIUMUSDT")
-usd_position_size = float(os.getenv("USD_POSITION_SIZE", "1500"))
+usd_position_size = float(os.getenv("USD_POSITION_SIZE", "100"))
 MAX_USD_POSITION = float(os.getenv("MAX_USD_POSITION", "1500"))
-trigger_drop_pct = float(os.getenv("TRIGGER_DROP_PCT", "25"))
+trigger_drop_pct = float(os.getenv("TRIGGER_DROP_PCT", "0.01"))
 
 # === SCALE-IN SETTINGS ===
 ENABLE_SCALE_IN = os.getenv("ENABLE_SCALE_IN", "True").lower() == "true"

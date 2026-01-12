@@ -73,10 +73,10 @@ Scroll to "Environment Variables" section and add:
 - `BYBIT_API_SECRET` = `6qcz3FE9j2cXr8afh2JLSAwA4AD5qHSXi7VC`
 
 **Optional (defaults in code):**
-- `SYMBOL_LONG` = `HYPEUSDT`
-- `SYMBOL_SHORT` = `JASMYUSDT`
+- `SYMBOL_LONG` = `MNTUSDT`
+- `SYMBOL_SHORT` = `RAYDIUMUSDT`
 - `USD_POSITION_SIZE` = `1500`
-- `TRIGGER_DROP_PCT` = `12`
+- `TRIGGER_DROP_PCT` = `9`
 
 ### Step 4: Deploy
 1. Click **"Create Web Service"**
