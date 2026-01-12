@@ -295,8 +295,8 @@ while True:
                     scale_in_executed = SCALE_IN_LEGS
                     continue
 
-                long_qty = round(trade_size / long_price, 2)
-                short_qty = round(trade_size / short_price, 0)
+                long_qty = round(trade_size / long_price, 3)
+                short_qty = round(trade_size / short_price, 3)
                 
                 # Bybit minimum order size is typically 1 USDT equivalent
                 # Check if quantities are too small
@@ -356,8 +356,8 @@ while True:
             if trade_size < usd_position_size:
                 print(f"[{get_timestamp()}] ⚠️ Requested size clipped to ${trade_size} max.")
 
-            long_qty = round(trade_size / long_price, 2)
-            short_qty = round(trade_size / short_price, 0)
+            long_qty = round(trade_size / long_price, 3)
+            short_qty = round(trade_size / short_price, 3)
             
             # Bybit minimum order size is typically 1 USDT equivalent
             min_usd_value = 1.0
