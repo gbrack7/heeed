@@ -46,16 +46,44 @@ for key, value in sorted(os.environ.items()):
 print("=== END DEBUG ===")
 
 # === ⚙️ SETTINGS ===
-symbol_long = os.getenv("SYMBOL_LONG", "MNTUSDT")
-symbol_short = os.getenv("SYMBOL_SHORT", "RAYDIUMUSDT")
-usd_position_size = float(os.getenv("USD_POSITION_SIZE", "1500"))
-MAX_USD_POSITION = float(os.getenv("MAX_USD_POSITION", "1500"))
-trigger_drop_pct = float(os.getenv("TRIGGER_DROP_PCT", "0.01"))
+# Option 1: Use individual environment variables (if set)
+# Option 2: Use BOT_CONFIG string (format: "SYMBOL_LONG|SYMBOL_SHORT|TRIGGER_PCT|POSITION_SIZE|SCALE_IN|LEGS|STEP")
+# Example: "HYPEUSDT|JASMYUSDT|12|1500|True|3|2"
 
-# === SCALE-IN SETTINGS ===
-ENABLE_SCALE_IN = os.getenv("ENABLE_SCALE_IN", "True").lower() == "true"
-SCALE_IN_LEGS = int(os.getenv("SCALE_IN_LEGS", "3"))
-SCALE_IN_DROP_STEP = float(os.getenv("SCALE_IN_DROP_STEP", "2"))
+bot_config = os.getenv("BOT_CONFIG")
+if bot_config:
+    # Parse config string: SYMBOL_LONG|SYMBOL_SHORT|TRIGGER_PCT|POSITION_SIZE|SCALE_IN|LEGS|STEP
+    parts = bot_config.split("|")
+    if len(parts) >= 7:
+        symbol_long = parts[0].strip()
+        symbol_short = parts[1].strip()
+        trigger_drop_pct = float(parts[2].strip())
+        usd_position_size = float(parts[3].strip())
+        ENABLE_SCALE_IN = parts[4].strip().lower() == "true"
+        SCALE_IN_LEGS = int(parts[5].strip())
+        SCALE_IN_DROP_STEP = float(parts[6].strip())
+        MAX_USD_POSITION = usd_position_size
+        print(f"[{get_timestamp()}] ✅ Using BOT_CONFIG: {symbol_long}/{symbol_short}, {trigger_drop_pct}% trigger, ${usd_position_size}", flush=True)
+    else:
+        print(f"[{get_timestamp()}] ⚠️ BOT_CONFIG format invalid, using defaults", flush=True)
+        symbol_long = os.getenv("SYMBOL_LONG", "MNTUSDT")
+        symbol_short = os.getenv("SYMBOL_SHORT", "RAYDIUMUSDT")
+        usd_position_size = float(os.getenv("USD_POSITION_SIZE", "1500"))
+        MAX_USD_POSITION = float(os.getenv("MAX_USD_POSITION", "1500"))
+        trigger_drop_pct = float(os.getenv("TRIGGER_DROP_PCT", "0.01"))
+        ENABLE_SCALE_IN = os.getenv("ENABLE_SCALE_IN", "True").lower() == "true"
+        SCALE_IN_LEGS = int(os.getenv("SCALE_IN_LEGS", "3"))
+        SCALE_IN_DROP_STEP = float(os.getenv("SCALE_IN_DROP_STEP", "2"))
+else:
+    # Use individual environment variables or defaults
+    symbol_long = os.getenv("SYMBOL_LONG", "MNTUSDT")
+    symbol_short = os.getenv("SYMBOL_SHORT", "RAYDIUMUSDT")
+    usd_position_size = float(os.getenv("USD_POSITION_SIZE", "1500"))
+    MAX_USD_POSITION = float(os.getenv("MAX_USD_POSITION", "1500"))
+    trigger_drop_pct = float(os.getenv("TRIGGER_DROP_PCT", "0.01"))
+    ENABLE_SCALE_IN = os.getenv("ENABLE_SCALE_IN", "True").lower() == "true"
+    SCALE_IN_LEGS = int(os.getenv("SCALE_IN_LEGS", "3"))
+    SCALE_IN_DROP_STEP = float(os.getenv("SCALE_IN_DROP_STEP", "2"))
 
 endpoint = "https://api.bybit.com"
 instrument_cache = {}
