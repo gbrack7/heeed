@@ -333,20 +333,22 @@ while True:
                     print(f"[{get_timestamp()}] ⚠️⚠️⚠️ Stopping scale-in to prevent further unhedged positions!")
                     break
                 
-                print(f"[{get_timestamp()}] ✅ Leg {leg_num} both orders executed successfully!")
+                print(f"[{get_timestamp()}] ✅ Leg {leg_num} both orders executed successfully!", flush=True)
 
                 scale_in_executed += 1
                 total_executed = scale_in_executed * scale_in_leg_size
-                print(f"[{get_timestamp()}] 📊 Progress: ${total_executed:.0f}/${usd_position_size:.0f} executed ({scale_in_executed}/{SCALE_IN_LEGS} legs)")
+                print(f"[{get_timestamp()}] 📊 Progress: ${total_executed:.0f}/${usd_position_size:.0f} executed ({scale_in_executed}/{SCALE_IN_LEGS} legs)", flush=True)
 
                 # If all legs executed, exit
                 if scale_in_executed >= SCALE_IN_LEGS:
-                    print(f"[{get_timestamp()}] ✅ All scale-in legs completed!")
+                    print(f"[{get_timestamp()}] ✅ All scale-in legs completed!", flush=True)
                     break
                 
-                # Wait a bit before checking for next leg
-                time.sleep(5)
-                continue
+                # CRITICAL: Break after executing one leg to prevent multiple simultaneous executions
+                # The next loop iteration will fetch new prices and check if the next leg should execute
+                print(f"[{get_timestamp()}] ⏸️ Leg {leg_num} executed. Waiting before checking next leg...", flush=True)
+                time.sleep(10)  # Wait 10 seconds before checking next leg
+                break  # Exit scale-in check, next loop iteration will fetch prices and check again
 
         # Original single-execution logic (if scale-in disabled)
         elif trigger_ratio is not None and ratio <= trigger_ratio:
